@@ -1,5 +1,7 @@
 Suave
+Suave.Testing
 Fuchu.FsCheck
 Arachne.Language
 Arachne.Http
 Chiron
+Http.fs-prerelease

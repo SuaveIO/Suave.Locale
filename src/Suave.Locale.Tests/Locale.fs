@@ -1,6 +1,11 @@
 ﻿module Suave.Locale.Tests
 
+open System
+open Suave
+open Suave.Web
+open Suave.Http
 open Suave.Types
+open Suave.Testing
 open Arachne.Http
 open Arachne.Language
 open Chiron
@@ -30,20 +35,25 @@ let range =
       ]
     ]
 
+let emptyData r =
+  IntlData.Create(
+    [r],
+    """{"misc":{"title":"Häftig titel"}}""" |> Json.parse |> Json.deserialize)
+
+let wonkyData = """{"locales":["sv-SE"],"messages":{"misc":{"title":"Awesome Title"}}}"""
+
 [<Tests>]
 let intlData =
   testList "intl data" [
     testCase "from json" <| fun _ ->
       let rec find k (Messages kvs) = List.find (fun (key, value) -> key = k) kvs |> snd
-      let data = """{"locale":"sv-SE","messages":{"misc":{"title":"Awesome Title"}}}"""
-      let intl : IntlData = Json.parse data |> Json.deserialize
-      Assert.Equal("locale", Range ["sv"; "SE"], intl.locale)
+      let intl : IntlData = Json.parse wonkyData |> Json.deserialize
+      Assert.Equal("locale", [ Range ["sv"; "SE"] ], intl.locales)
       Assert.Equal("title", "Awesome Title", find ["misc";"title"] intl.messages)
     ]
 
 [<Tests>]
 let negotiate =
-  let emptyData r = IntlData.Create(r)
   let createSource matching = function
     | Range rs as r when rs = matching -> Choice1Of2 (emptyData r)
     | Any                              -> Choice1Of2 (emptyData (Range ["en"]))
@@ -64,11 +74,42 @@ let negotiate =
     ]
   ]
 
+open HttpFs
+
 [<Tests>]
 let http =
-  let app = Suave.Locale.Http.app
-  let server = ()
-  testList "Http" [
-    testCase "negotiate from qs" <| fun _ ->
+  let neg =
+    Negotiate.negotiate
+      [ ReqSources.parseAcceptable ]
+      [ LangSources.fromJson wonkyData
+        function _ -> Choice1Of2 (emptyData (Range ["sv"; "SE"]))
+      ]
+    |> Negotiate.assumeSource
 
+
+  let clientNeg header =
+    let ctx = runWith defaultConfig (Http.app "/intl" neg)
+    try
+      use resp =
+        Client.createRequest Client.Get (Uri "http://127.0.0.1:8083/intl")
+        |> Client.withHeader (Client.RequestHeader.AcceptLanguage "ro")
+        |> Client.getResponse
+        |> Async.RunSynchronously
+      
+      let data : IntlData =
+        resp
+        |> Client.Response.readBodyAsString
+        |> Async.RunSynchronously
+        |> Json.parse
+        |> Json.deserialize
+
+      data
+
+    finally
+      disposeContext ctx
+
+  testList "Http" [
+    testCase "negotiate" <| fun _ ->
+      let data = clientNeg "ro, en, sv"
+      Assert.Equal("locales", [ Range [ "sv"; "SE" ] ], data.locales)
     ]

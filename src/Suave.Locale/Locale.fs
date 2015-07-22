@@ -48,6 +48,13 @@ module internal Prelude =
           | Choice2Of2 _ -> inner xs
       inner
 
+  module Map =
+    let put k v m =
+      match m |> Map.tryFind k with
+      | None -> m |> Map.add k v
+      | Some _ -> m |> Map.remove k |> Map.add k v
+
+
 module Range =
   /// Find
   let generalise = function
@@ -74,26 +81,38 @@ module Range =
     | Choice1Of2 _ -> true
     | _ -> false
 
+  let toString = function
+    | Any -> "*/*"
+    | Range rs -> String.concat "-" rs
+
 type MessageKey = string list
 type Translation = string
 
 open Chiron.Operators
 
 type IntlData =
-  { locale   : LanguageRange
+  { locales  : LanguageRange list
     messages : Messages }
 
-  static member Create (range : LanguageRange, ?messages : Messages) =
-    { locale   = range
+  static member Create (ranges : LanguageRange list, ?messages : Messages) =
+    { locales  = ranges
       messages = defaultArg messages (Messages []) }
 
+  static member Create (range : LanguageRange, ?messages : Messages) =
+    match messages with
+    | None -> IntlData.Create([range])
+    | Some ms -> IntlData.Create([range], ms)
+      
   static member FromJson (_ : _) : Json<_> =
-    (fun l m -> { locale = LanguageRange.Parse l; messages = m })
-    <!> Json.read "locale"
+    (fun ls m -> { locales = ls |> List.map LanguageRange.Parse; messages = m })
+    <!> Json.read "locales"
     <*> Json.read "messages"
 
-and Messages = Messages of (MessageKey * Translation) list
+  static member ToJson (x : IntlData) =
+    Json.write "locales" (x.locales |> List.map Range.toString)
+    *> Json.write "messages" x.messages
 
+and Messages = Messages of (MessageKey * Translation) list
 with
   static member FromJson (_ : Messages) : Json<Messages> =
     // { "k": { .. }, "k2": ".." }
@@ -108,8 +127,28 @@ with
         List.concat (List.map (parse key) arr)
       | _ ->
         []
+
     fun json ->
       Value (Messages (parse [] json)), json
+
+  static member ToJson (Messages msgs) : Json<unit> =
+    let rec traverse m tr : MessageKey -> Map<string, Json> = function
+      | [] -> failwith "assumes non-empty keys, as that wouldn't make sense"
+      | k :: [] -> m |> Map.put k (String tr)
+      | k :: ks ->
+        match m |> Map.tryFind k with
+        | Some (Object m') -> traverse m' tr ks
+        | None | Some _    -> traverse (m |> Map.put k (Object Map.empty)) tr ks
+
+    let reducer (state : Json) (ks, (tr : Translation)) =
+      match state with
+      | Object m -> Object (traverse m tr ks)
+      | _ -> failwith "outer should be a map, as per the line below"
+
+    let convert msgs = msgs |> List.fold reducer (Object Map.empty)
+
+    fun json ->
+      Value (), convert msgs
 
 /// Return IntlData if you have data for the given range; always return your data
 /// if you're given the Any range. For non-Any ranges, only return for exact
@@ -124,7 +163,7 @@ module LangSources =
   let fromJson jsonStr : IntlSource =
     let data = Json.parse jsonStr |> Json.deserialize
     fun range ->
-      if range = data.locale || range = Any then Choice1Of2 data
+      if data.locales |> List.exists ((=) range) || range = Any then Choice1Of2 data
       else Choice2Of2 ()
 
   // en.json
@@ -138,14 +177,14 @@ module LangSources =
   // testAndGet . . ["en"] => Choice1Of2 ( ... )
   // testAndGet . . ["en"; "GB"] => Choice2Of2 ()
 
-  /// given Range["en"; "SE"; "Private"] tests "en_SE_Private.json".
+  /// given Range["en"; "SE"; "Private"] tests "en-SE-Private.json".
   /// given Any tests "_.json"
   let testAndGetJson test get : IntlSource =
     fun range ->
       let name =
         match range with
         | Any -> "_.json"
-        | Range ns -> (String.concat "_" ns) + ".json"
+        | Range ns -> (String.concat "-" ns) + ".json"
       if test name then Choice1Of2 (get name) else Choice2Of2 ()
 
   open Chiron
@@ -154,30 +193,30 @@ module LangSources =
   //let jsonFile =
   //  testAndGetJson File.Exists (File.ReadAllText >> Json.parse >> Json.deserialize)
 
+type ReqSource = HttpRequest -> Choice<AcceptLanguage, unit>
+
+module ReqSources =
+
+  /// Parse the locale from the Accept-Language header
+  let parseAcceptable : ReqSource =
+    fun req ->
+      req.header "accept-language"
+      |> Choice.mapSnd (fun _ -> ())
+      |> Choice.bind (fun str -> AcceptLanguage.TryParse(str) |> Choice.ofOption ())
+
+  /// Find the locale from a cookie with a name
+  let parseCookie name : ReqSource =
+    fun req ->
+      Choice2Of2 ()
+
+  /// Find the locale from the query string
+  let parseQs name : ReqSource =
+    fun req ->
+      req.queryParam name
+      |> Choice.mapSnd (fun _ -> ())
+      |> Choice.bind (fun str -> AcceptLanguage.TryParse(str) |> Choice.ofOption ())
+
 module Negotiate =
-
-  type ReqSource = HttpRequest -> Choice<AcceptLanguage, unit>
-
-  module ReqSources =
-
-    /// Parse the locale from the Accept-Language header
-    let parseAcceptable : ReqSource =
-      fun req ->
-        req.header "accept-language"
-        |> Choice.mapSnd (fun _ -> ())
-        |> Choice.bind (fun str -> AcceptLanguage.TryParse(str) |> Choice.ofOption ())
-
-    /// Find the locale from a cookie with a name
-    let parseCookie name : ReqSource =
-      fun req ->
-        Choice2Of2 ()
-
-    /// Find the locale from the query string
-    let parseQs name : ReqSource =
-      fun req ->
-        req.queryParam name
-        |> Choice.mapSnd (fun _ -> ())
-        |> Choice.bind (fun str -> AcceptLanguage.TryParse(str) |> Choice.ofOption ())
 
   (* Do a depth-first search of the accepted langs, sources and parent-keys
      of the given language range.
@@ -230,11 +269,23 @@ module Negotiate =
         |> List.tryPickCh (fun m -> m req) ()
         |> Choice.bind (findIntl sources)
 
+  /// You can do:
+  ///   Negotiate.negotiate [ ... ] [ ... ] |> Negotiate.assumeSource
+  /// to get back a:
+  ///   LangNeg
+  ///
+  let assumeSource f =
+    f >>
+    function
+    | Choice1Of2 x -> x
+    | Choice2Of2 () -> failwith "some language source didn't return a value properly, like assumed it would"
+
   let negotiateDefault sources : LangNeg =
     let defaults =
       [ ReqSources.parseAcceptable
-        ReqSources.parseQs "lang"
         ReqSources.parseCookie "lang" ]
+      // ReqSources.parseQs "lang" // not a good default as it may be shared in links
+
     fun req ->
       match negotiate defaults sources req with
       | Choice1Of2 x -> x
@@ -245,6 +296,7 @@ module Http =
   open Suave
   open Suave.Types
   open Suave.Http
+  open Suave.Http.Successful
   open Suave.Http.Applicatives
   open Suave.Http.Writers
   open Negotiate
@@ -252,5 +304,5 @@ module Http =
   let app matchPath (negotiate : LangNeg) : WebPart =
     GET
     >>= path matchPath
-    >>= request (negotiate >> Json.serialize >> Json.format)
+    >>= request (negotiate >> Json.serialize >> Json.format >> OK)
     >>= setMimeType "application/json"
