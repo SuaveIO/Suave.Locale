@@ -306,7 +306,8 @@ module Http =
     >>= path matchPath
     >>= request (fun r ->
       let data = negotiate r
+      let langs = data.locales |> List.map Range.toString |> String.concat ", "
       data |> Json.serialize |> Json.format |> OK
-      >>= setHeader "Content-Language" (data.locales |> List.head |> Range.toString))
+      >>= setHeader "Content-Language" langs)
     >>= setMimeType "application/json"
     >>= setHeader "Vary" "Content-Language"
