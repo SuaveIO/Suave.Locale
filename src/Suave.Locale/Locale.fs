@@ -304,5 +304,9 @@ module Http =
   let app matchPath (negotiate : LangNeg) : WebPart =
     GET
     >>= path matchPath
-    >>= request (negotiate >> Json.serialize >> Json.format >> OK)
+    >>= request (fun r ->
+      let data = negotiate r
+      data |> Json.serialize |> Json.format |> OK
+      >>= setHeader "Content-Language" (data.locales |> List.head |> Range.toString))
     >>= setMimeType "application/json"
+    >>= setHeader "Vary" "Content-Language"
