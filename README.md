@@ -42,7 +42,8 @@ type LangNeg    =    HttpRequest -> IntlData
 
 `ReqSource` takes a `Suave.Types.HttpRequest` and maybe returns a *range* of
 accepted languages. The most commonly used request source is
-`ReqSources.parseAcceptable` which parses `Accept-Language` into a range.
+`ReqSources.parseAcceptable` which parses `Accept-Language` HTTP-header into a
+range.
 
 `IntlSource` takes a language range and maybe returns localised contents for
 this range. You should have one of these that returns the default site language
