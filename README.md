@@ -1,6 +1,6 @@
 # Suave Locale
 
-An internationalisation WebPart and library for Suave for use with [React-Intl](https://github.com/yahoo/react-intl) or other i18n systems.
+An internationalisation WebPart and library for Suave for use with [React-Intl](https://github.com/yahoo/react-intl) and [Format.JS](http://formatjs.io/) or other i18n systems.
 
 This library's only purpose; to deliver:
 
