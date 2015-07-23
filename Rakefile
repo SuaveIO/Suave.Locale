@@ -1,7 +1,7 @@
 require 'bundler/setup'
 
 require 'albacore'
-# require 'albacore/tasks/release'
+require 'albacore/tasks/release'
 require 'albacore/tasks/versionizer'
 require 'albacore/ext/teamcity'
 
@@ -58,32 +58,31 @@ nugets_pack :create_nugets => ['build/pkg', :versioning, :compile] do |p|
   p.out     = 'build/pkg'
   p.exe     = 'packages/NuGet.CommandLine/tools/NuGet.exe'
   p.with_metadata do |m|
-    # m.id          = 'MyProj'
-    m.title       = 'TODO'
-    m.description = 'TODO'
-    m.authors     = 'John Doe, Foretag AB'
-    m.project_url = 'http://example.com'
-    m.tags        = ''
+    m.title       = 'Suave.Locale - i18n for Suave'
+    m.description = 'An internationalisation WebPart and library for Suave for use with React-Intl or other i18n systems.'
+    m.authors     = 'Henrik Feldt, Logibit AB'
+    m.project_url = 'https://github.com/SuaveIO/Suave.Locale#suave-locale'
+    m.tags        = 'i18n localisation localization internationalisation internationalization globalisation globalization locale'
     m.version     = ENV['NUGET_VERSION']
   end
 end
 
 namespace :tests do
-  #task :unit do
-  #  system "src/MyProj.Tests/bin/#{Configuration}/MyProj.Tests.exe", clr_command: true
-  #end
+  task :unit do
+    system "src/Suave.Locale.Tests/bin/#{Configuration}/Suave.Locale.Tests.exe", clr_command: true
+  end
 end
 
-# task :tests => :'tests:unit'
+task :tests => :'tests:unit'
 
-task :default => :create_nugets #, :tests ]
+task :default => [:create_nugets, :tests ]
 
-#task :ensure_nuget_key do
-#  raise 'missing env NUGET_KEY value' unless ENV['NUGET_KEY']
-#end
+task :ensure_nuget_key do
+  raise 'missing env NUGET_KEY value' unless ENV['NUGET_KEY']
+end
 
-#Albacore::Tasks::Release.new :release,
-#                             pkg_dir: 'build/pkg',
-#                             depend_on: [:create_nugets, :ensure_nuget_key],
-#                             nuget_exe: 'packages/NuGet.CommandLine/tools/NuGet.exe',
-#                             api_key: ENV['NUGET_KEY']
+Albacore::Tasks::Release.new :release,
+                             pkg_dir: 'build/pkg',
+                             depend_on: [:create_nugets, :ensure_nuget_key],
+                             nuget_exe: 'packages/NuGet.CommandLine/tools/NuGet.exe',
+                             api_key: ENV['NUGET_KEY']
