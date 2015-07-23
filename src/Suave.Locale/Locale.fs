@@ -54,7 +54,6 @@ module internal Prelude =
       | None -> m |> Map.add k v
       | Some _ -> m |> Map.remove k |> Map.add k v
 
-
 module Range =
   /// Find
   let generalise = function
@@ -86,6 +85,7 @@ module Range =
     | Range rs -> String.concat "-" rs
 
 type MessageKey = string list
+
 type Translation = string
 
 open Chiron.Operators
@@ -98,11 +98,11 @@ type IntlData =
     { locales  = ranges
       messages = defaultArg messages (Messages []) }
 
-  static member Create (range : LanguageRange, ?messages : Messages) =
+  static member Create (range : LanguageRange, ?messages : (MessageKey * Translation) list) =
     match messages with
-    | None -> IntlData.Create([range])
-    | Some ms -> IntlData.Create([range], ms)
-      
+    | None    -> IntlData.Create([range])
+    | Some ms -> IntlData.Create([range], Messages ms)
+
   static member FromJson (_ : _) : Json<_> =
     (fun ls m -> { locales = ls |> List.map LanguageRange.Parse; messages = m })
     <!> Json.read "locales"
@@ -117,28 +117,33 @@ with
   static member FromJson (_ : Messages) : Json<Messages> =
     // { "k": { .. }, "k2": ".." }
     let rec parse (key : MessageKey) = function
-      | Json.String translation ->
-        [ key, translation ]
+      | Json.String translation -> [ key, translation ]
+
       | Json.Object map ->
         Map.fold (fun s k t ->
-          let key' : MessageKey = key @ [k]
-          parse key' t @ s) [] map
-      | Json.Array arr ->
-        List.concat (List.map (parse key) arr)
-      | _ ->
-        []
+            let key' : MessageKey = key @ [k]
+            s @ parse key' t)
+          [] map
+
+      | Json.Array arr -> List.concat (List.map (parse key) arr)
+      | _              -> []
 
     fun json ->
       Value (Messages (parse [] json)), json
 
   static member ToJson (Messages msgs) : Json<unit> =
     let rec traverse m tr : MessageKey -> Map<string, Json> = function
-      | [] -> failwith "assumes non-empty keys, as that wouldn't make sense"
-      | k :: [] -> m |> Map.put k (String tr)
-      | k :: ks ->
+      | [] ->
+        failwith "assumes non-empty keys, as that wouldn't make sense"
+      | k :: [] ->
+        m |> Map.put k (String tr)
+      | k :: ks as key ->
         match m |> Map.tryFind k with
-        | Some (Object m') -> traverse m' tr ks
-        | None | Some _    -> traverse (m |> Map.put k (Object Map.empty)) tr ks
+        | Some (Object m') -> m |> Map.put k (Object (traverse m' tr ks))
+        | None             -> m |> Map.put k (Object (traverse Map.empty tr ks))
+        | Some _  as x     ->
+          printfn "Suave.Locale (programmer error): unexpected %A in map %A – this means you have a duplicate key '%s'" x m k
+          m |> Map.put k (Object (traverse m tr ks))
 
     let reducer (state : Json) (ks, (tr : Translation)) =
       match state with
@@ -149,6 +154,20 @@ with
 
     fun json ->
       Value (), convert msgs
+
+[<CompilationRepresentation (CompilationRepresentationFlags.ModuleSuffix)>]
+module IntlData =
+  /// Find the key in the list of translations
+  let rec find k intl =
+    let (Messages kvs) = intl.messages
+    List.find (fun (key, value) -> key = k) kvs |> snd
+
+  /// Merge the translations from b into a, overwriting exiting items of a and
+  /// in the case of differing hierarchies of the two translations, choses the
+  /// hierarchy from b.
+  let merge a b =
+    { locales  = List.concat [a.locales; b.locales]
+      messages = a.messages } // TODO: implement merge algo
 
 /// Return IntlData if you have data for the given range; always return your data
 /// if you're given the Any range. For non-Any ranges, only return for exact

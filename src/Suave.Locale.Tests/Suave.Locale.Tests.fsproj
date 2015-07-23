@@ -40,6 +40,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyVersionInfo.fs" />
+    <Compile Include="Prelude.fs" />
     <Compile Include="Locale.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

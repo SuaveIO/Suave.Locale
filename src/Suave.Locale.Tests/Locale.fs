@@ -1,4 +1,4 @@
-﻿module Suave.Locale.Tests
+module Suave.Locale.Tests.Locale
 
 open System
 open Suave
@@ -51,10 +51,79 @@ let wonkyMsgs = """{"locales":["en"],"messages":{"misc":{"title":"Awesome Title"
 let intlData =
   testList "intl data" [
     testCase "from json" <| fun _ ->
-      let rec find k (Messages kvs) = List.find (fun (key, value) -> key = k) kvs |> snd
       let intl : IntlData = Json.parse wonkyMsgs |> Json.deserialize
       Assert.Equal("locale", [ Range ["en"] ], intl.locales)
-      Assert.Equal("title", "Awesome Title", find ["misc";"title"] intl.messages)
+      Assert.Equal("title", "Awesome Title", intl |> IntlData.find ["misc";"title"])
+
+    testCase "multi-length key" <| fun _ ->
+      let data = {locales = []; messages = Messages [(["en"; "GB"], "Hello World")];}
+      //printfn "json: %A" (data |> Json.serialize)
+      Assert.Equal("", data, data |> Json.serialize |> Json.deserialize)
+
+    testCase "back and forth with single key-message" <| fun _ ->
+      let data = {locales = []; messages = Messages [(["L^"], "a")];}
+      Assert.Equal("", data, data |> Json.serialize |> Json.deserialize)
+
+    testCase "back and forth with >1 message" <| fun _ ->
+      let data = { locales  = []
+                   messages =
+                     Messages [
+                       (["o"; "\"n3UK"; "<2MC"; "5+MC"; "9/"; "/"; "F<^*o"; "@6XNt"; "7|r"; "0&";
+                         "~"; "(m"; "3^lzXu."; "2("], "a")
+                       (["o"; "/tj"; "$O]kI"; "9/Q"; "VbD2!"; "\(m"; "@6X"; "OH|L"; "<gu"; "l.D[D";
+                         "4"; "x=3U!f\~J"; "X"; "S"; "i."; "5"; "&H"], "a")
+                   ] }
+      //printfn "json: %A" (data |> Json.serialize)
+      Assert.Equal("", data, data |> Json.serialize |> Json.deserialize)
+                  
+    testPropertyWithConfig fsCheckConfig "back and forth" <| fun (intl : IntlData) ->
+      // TODO: ensure that FsCheck doesn't generate two translation keys k1, k2 such that
+      // k1 is a leaf node and k1 is also a prefix of k2 as this will make input
+      // not equal to output and fail the property
+
+      // TODO: ensure that FsCheck doesn't generate identical translation keys k1, k2
+      let subject : IntlData = intl |> Json.serialize |> Json.deserialize
+      let (Messages msgs) = intl.messages
+      for (k, tr) in msgs do
+        let (Messages trMsgs) = subject.messages
+        try
+          Assert.Equal("eq", tr, trMsgs |> List.find (fun (key, _) -> key = k) |> snd)
+        with e ->
+          let b : string -> byte [] = System.Text.Encoding.UTF8.GetBytes
+          //printfn "key: %A, subject: %A, expected: %A" (List.map b k) subject intl
+          reraise ()
+
+    testCase "merge" <| fun _ ->
+      Tests.skiptest "To be done – help requested"
+
+      let svSE =
+        [ [ "frontpage"; "menu"; "home" ], "Hem" // both have, this overwritten
+          [ "frontpage"; "menu"; "logout" ], "Logga Ut" // fi doesn't have
+          [ "settings"; "username" ], "haf" // fi doesn't have, new parent key-space
+          [ "frontpage"; "menu"; "submenu" ], "TODO" // fi has extra level
+        ]
+
+      let svFI =
+        [ [ "frontpage"; "menu"; "home" ], "Hemm" // both have, this chosedn
+          [ "frontpage"; "menu"; "help" ], "Hjälp" // sv doesn't have
+          [ "frontpage"; "menu"; "submenu"; "details" ], "Detaljer" // sv missing level, this chosen
+        ]
+      let expMerged =
+        [ [ "frontpage"; "menu"; "home" ], "Hemm"
+          [ "frontpage"; "menu"; "logout" ], "Logga Ut"
+          [ "frontpage"; "menu"; "help" ], "Hjälp"
+          [ "settings"; "username" ], "haf"
+          [ "frontpage"; "menu"; "submenu"; "details" ], "Detaljer"
+        ]
+      let sv = IntlData.Create(Range ["sv"; "SE"], svSE)
+      let fi = IntlData.Create(Range ["sv"; "FI"], svFI)
+
+      let merged = IntlData.merge sv fi
+      Assert.Equal("merges locales", [ Range [ "sv"; "SE" ]; Range [ "sv"; "FI" ] ], merged.locales)
+      let (Messages subject) = merged.messages
+
+      for (k, tr) in expMerged do
+        Assert.Equal(sprintf "merged %A" k, tr, merged |> IntlData.find k)
     ]
 
 [<Tests>]
