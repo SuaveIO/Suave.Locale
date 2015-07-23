@@ -328,5 +328,5 @@ module Http =
       let langs = data.locales |> List.map Range.toString |> String.concat ", "
       data |> Json.serialize |> Json.format |> OK
       >>= setHeader "Content-Language" langs)
-    >>= setMimeType "application/json"
+    >>= setMimeType "application/json; charset=utf-8"
     >>= setHeader "Vary" "Content-Language"
