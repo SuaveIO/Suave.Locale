@@ -4,7 +4,7 @@ An internationalisation WebPart and library for Suave for use with [React-Intl](
 
 This library's only purpose; to deliver:
 
-``` json
+``` javascript
 var intlData = {
     locales : ['en-US'],
     messages: {
