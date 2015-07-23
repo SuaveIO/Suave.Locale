@@ -53,6 +53,17 @@ last in the list: `IntlSource list`, and others for each supported language.
 negotiation function. You can turn it into a `LangNeg` by doing
 
 ``` fsharp
-Negotiate.negotiate [ .. ] [ .. ] |> Negotiate.assumeSource
-// => (it : LangNeg)
+let neg : LangNeg = Negotiate.negotiate [ .. ] [ .. ] |> Negotiate.assumeSource
 ```
+
+Now you can feed the `LangNeg` into the combinator:
+
+``` fsharp
+let app : WebPart =
+  choose [
+    Suave.Locale.Http.app "/intl" neg
+    Browse.filesHome
+    ]
+```
+
+And you have yourself a splendid new internationalisation system!
