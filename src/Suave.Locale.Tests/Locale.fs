@@ -94,7 +94,7 @@ let http =
     |> Negotiate.assumeSource
 
   let clientNeg header =
-    let ctx = runWith defaultConfig (Http.app "/intl" neg)
+    let ctx = runWith defaultConfig (Http.api "/intl" neg)
 
     try
       use resp =

@@ -301,7 +301,7 @@ module Http =
   open Suave.Http.Writers
   open Negotiate
 
-  let app matchPath (negotiate : LangNeg) : WebPart =
+  let api matchPath (negotiate : LangNeg) : WebPart =
     GET
     >>= path matchPath
     >>= request (fun r ->

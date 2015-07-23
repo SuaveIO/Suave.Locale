@@ -61,7 +61,7 @@ Now you can feed the `LangNeg` into the combinator:
 ``` fsharp
 let app : WebPart =
   choose [
-    Suave.Locale.Http.app "/intl" neg
+    Suave.Locale.Http.api "/intl" neg
     Browse.filesHome
     ]
 ```
