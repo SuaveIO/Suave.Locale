@@ -260,8 +260,8 @@ module Negotiate =
       | Choice1Of2 x -> Choice1Of2 x
       | Choice2Of2 () ->
         let next = Range.generalise curr
+        //printfn "next=%A, curr=%A, eq=%b" next curr (next = curr)
         if next = curr then Choice2Of2 ()
-        elif not (Range.isParent target next) then Choice2Of2 ()
         else inner next
     inner target
 

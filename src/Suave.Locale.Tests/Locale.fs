@@ -128,12 +128,17 @@ let intlData =
 
 [<Tests>]
 let negotiate =
-  let createSource matching = function
-    | Range rs as r when rs = matching -> Choice1Of2 (emptyData r)
-    | Any                              -> Choice1Of2 (emptyData (Range ["en"]))
-    | _                                -> Choice2Of2 ()
-  let en = createSource [ "en" ]
-  let enGB = createSource [ "en"; "GB" ]
+  let wants matching = function
+    | Range rs as r when rs = matching ->
+      printfn "testing %A, matching %A" rs matching
+      Choice1Of2 (emptyData r)
+    | Any                              ->
+      Choice1Of2 (emptyData (Range ["en"]))
+    | rs                                ->
+      printfn "testing %A, not matching %A" rs matching
+      Choice2Of2 ()
+  let en = wants [ "en" ]
+  let enGB = wants [ "en"; "GB" ]
 
   testList "Negotiate" [
     testList "findParent" [
@@ -147,6 +152,12 @@ let negotiate =
         Assert.Equal("",
                      Choice1Of2 (emptyData (Range ["en"; "GB"])),
                      Negotiate.findParent enGB (Range ["en"; "GB"]))
+
+      testCase "(Source 'en') 'en-GB' => Choice1Of2 'en'" <| fun _ ->
+        printfn "source en, wants en-gb"
+        Assert.Equal("",
+                     Choice1Of2 (emptyData (Range ["en"])),
+                     Negotiate.findParent en (Range ["en"; "GB"]))
     ]
   ]
 
