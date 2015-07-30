@@ -235,6 +235,10 @@ module ReqSources =
       |> Choice.mapSnd (fun _ -> ())
       |> Choice.bind (fun str -> AcceptLanguage.TryParse(str) |> Choice.ofOption ())
 
+  let always range : ReqSource =
+    fun _ ->
+      Choice1Of2 (AcceptLanguage [ AcceptableLanguage (range, None) ])
+
 module Negotiate =
 
   (* Do a depth-first search of the accepted langs, sources and parent-keys
@@ -294,10 +298,12 @@ module Negotiate =
   ///   LangNeg
   ///
   let assumeSource f =
-    f >>
-    function
-    | Choice1Of2 x -> x
-    | Choice2Of2 () -> failwith "some language source didn't return a value properly, like assumed it would"
+    fun x ->
+      f x
+      |> function
+      | Choice1Of2 x -> x
+      | Choice2Of2 () ->
+        failwith "some language source didn't return a value properly for %A, like assumed it would" x
 
   let negotiateDefault sources : LangNeg =
     let defaults =

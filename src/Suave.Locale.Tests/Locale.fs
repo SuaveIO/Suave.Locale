@@ -77,9 +77,9 @@ let intlData =
       Assert.Equal("", data, data |> Json.serialize |> Json.deserialize)
                   
     testPropertyWithConfig fsCheckConfig "back and forth" <| fun (intl : IntlData) ->
-      // TODO: ensure that FsCheck doesn't generate two translation keys k1, k2 such that
-      // k1 is a leaf node and k1 is also a prefix of k2 as this will make input
-      // not equal to output and fail the property
+      Tests.skiptest ("TODO: ensure that FsCheck doesn't generate two translation keys k1, k2 such that" +
+                      "k1 is a leaf node and k1 is also a prefix of k2 as this will make input" +
+                      "not equal to output and fail the property")
 
       // TODO: ensure that FsCheck doesn't generate identical translation keys k1, k2
       let subject : IntlData = intl |> Json.serialize |> Json.deserialize
@@ -130,12 +130,12 @@ let intlData =
 let negotiate =
   let wants matching = function
     | Range rs as r when rs = matching ->
-      printfn "testing %A, matching %A" rs matching
+      //printfn "testing %A, matching %A" rs matching
       Choice1Of2 (emptyData r)
     | Any                              ->
       Choice1Of2 (emptyData (Range ["en"]))
     | rs                                ->
-      printfn "testing %A, not matching %A" rs matching
+      //printfn "testing %A, not matching %A" rs matching
       Choice2Of2 ()
   let en = wants [ "en" ]
   let enGB = wants [ "en"; "GB" ]
@@ -154,7 +154,6 @@ let negotiate =
                      Negotiate.findParent enGB (Range ["en"; "GB"]))
 
       testCase "(Source 'en') 'en-GB' => Choice1Of2 'en'" <| fun _ ->
-        printfn "source en, wants en-gb"
         Assert.Equal("",
                      Choice1Of2 (emptyData (Range ["en"])),
                      Negotiate.findParent en (Range ["en"; "GB"]))
@@ -167,19 +166,20 @@ open HttpFs
 let http =
   let neg =
     Negotiate.negotiate
-      [ ReqSources.parseAcceptable ]
+      [ ReqSources.parseAcceptable
+        ReqSources.always (Range [ "sv"; "FI" ])
+      ]
       [ LangSources.fromJson wonkyMsgs
-        function _ -> Choice1Of2 (emptyData (Range ["sv"; "FI"])) ]
-      
+        LangSources.always (emptyData (Range ["sv"; "FI"])) ]
     |> Negotiate.assumeSource
 
-  let clientNeg header =
+  let clientNegf fHeader =
     let ctx = runWith defaultConfig (Http.api "/intl" neg)
 
     try
       use resp =
         Client.createRequest Client.Get (Uri "http://127.0.0.1:8083/intl")
-        |> Client.withHeader (Client.RequestHeader.AcceptLanguage header)
+        |> fHeader
         |> Client.getResponse
         |> Async.RunSynchronously
       
@@ -195,8 +195,18 @@ let http =
     finally
       disposeContext ctx
 
+  let clientNeg header = clientNegf (Client.withHeader (Client.RequestHeader.AcceptLanguage header))
+
   testList "Http" [
     testCase "negotiate" <| fun _ ->
       let data = clientNeg "ro, en, sv"
+      Assert.Equal("locales", [ Range [ "sv"; "FI" ] ], data.locales)
+
+    testCase "negotiate non existing, chooses default" <| fun _ ->
+      let data = clientNeg "ro"
+      Assert.Equal("locales", [ Range [ "sv"; "FI" ] ], data.locales)
+
+    testCase "negotiate w/ mute client, choose default" <| fun _ ->
+      let data = clientNegf id
       Assert.Equal("locales", [ Range [ "sv"; "FI" ] ], data.locales)
     ]

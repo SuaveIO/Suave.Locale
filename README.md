@@ -1,17 +1,19 @@
 # Suave Locale
 
-An internationalisation WebPart and library for Suave for use with [React-Intl](https://github.com/yahoo/react-intl) and [Format.JS](http://formatjs.io/) or other i18n systems.
+An internationalisation WebPart and library for Suave for use with
+[React-Intl](https://github.com/yahoo/react-intl) and [Format.JS](http://formatjs.io/)
+or other i18n systems.
 
 This library's only purpose; to deliver:
 
 ``` javascript
 var intlData = {
-    locales : ['en-US'],
-    messages: {
-        post: {
-            meta: 'Posted {ago}, {num, plural, one{# comment} other{# comments}}'
-        }
+  locales : ['en-GB'],
+  messages: {
+    post: {
+      meta: 'Posted {ago}, {num, plural, one{# comment} other{# comments}}'
     }
+  }
 };
 ```
 
