@@ -55,8 +55,21 @@ last in the list: `IntlSource list`, and others for each supported language.
 negotiation function. You can turn it into a `LangNeg` by doing
 
 ``` fsharp
-let neg : LangNeg = Negotiate.negotiate [ .. ] [ .. ] |> Negotiate.assumeSource
+let neg : LangNeg =
+  Negotiate.negotiate
+    [ ReqSources.parseQs "locale"
+      ReqSources.parseCookie "locale"
+      ReqSources.parseAcceptable
+      ReqSources.always (Range [ "en" ])]
+    [ LangSources.testAndGetJson test get
+      LangSources.always (defaultLanguage appCtx.settings.rootPath) ]
+  |> Negotiate.assumeSource
 ```
+
+This first tries to find a query string, `locale`, then the cookie `locale`,
+then the header `Acceptable-Language` and if all of these fail, the `en` locale.
+`Negotiate.assumeSource` assumes we get a Choice1Of2 from **both** the
+`ReqSources` and the `LangSources`.
 
 Now you can feed the `LangNeg` into the combinator:
 
