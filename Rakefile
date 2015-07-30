@@ -62,7 +62,7 @@ nugets_pack :create_nugets => ['build/pkg', :versioning, :compile] do |p|
     m.description = 'An internationalisation WebPart and library for Suave for use with React-Intl or other i18n systems.'
     m.authors     = 'Henrik Feldt, Logibit AB'
     m.project_url = 'https://github.com/SuaveIO/Suave.Locale#suave-locale'
-    m.tags        = 'i18n localisation localization internationalisation internationalization globalisation globalization locale'
+    m.tags        = 'i18n localization globalization locale locales'
     m.version     = ENV['NUGET_VERSION']
   end
 end
