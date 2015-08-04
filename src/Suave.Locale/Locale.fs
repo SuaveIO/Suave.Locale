@@ -176,9 +176,20 @@ type IntlSource = LanguageRange -> Choice<IntlData, unit>
 
 module LangSources =
 
+  /// Always serve this translation if it's queried. Even if the negotiated
+  /// locale is something different.
   let always intl : IntlSource =
     fun _ -> Choice1Of2 intl
 
+  /// Serve this `intl` translation only if the 'matching' LanguageRange
+  /// parameter matches the negotiated. Example:
+  ///
+  /// LangSources.onlyIf (Range [ "en" ]) intl
+  let forRange matching intl : IntlSource =
+    fun actual -> if matching = actual then Choice1Of2 intl else Choice2Of2 ()
+
+  /// Create an IntlSource from the json string. The string needs to be possible
+  /// to deserialise into an IntlData structure.
   let fromJson jsonStr : IntlSource =
     let data = Json.parse jsonStr |> Json.deserialize
     fun range ->
