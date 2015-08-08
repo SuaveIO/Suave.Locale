@@ -337,13 +337,15 @@ module Http =
   open Suave.Http.Writers
   open Negotiate
 
-  let api matchPath (negotiate : LangNeg) : WebPart =
-    GET
-    >>= path matchPath
-    >>= request (fun r ->
-      let data = negotiate r
+  /// Directly serve the IntlData as a JSON structure; doesn't enforce GET or
+  /// path.
+  let serve (data : IntlData) : WebPart =
+    request (fun r ->
       let langs = data.locales |> List.map Range.toString |> String.concat ", "
       data |> Json.serialize |> Json.format |> OK
       >>= setHeader "Content-Language" langs)
     >>= setMimeType "application/json; charset=utf-8"
     >>= setHeader "Vary" "Content-Language"
+
+  let api matchPath (negotiate : LangNeg) : WebPart =
+    GET >>= path matchPath >>= request (negotiate >> serve)
