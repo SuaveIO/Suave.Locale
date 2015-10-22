@@ -18,6 +18,3 @@ PLATFORMS
 
 DEPENDENCIES
   albacore (~> 2.3.22)
-
-BUNDLED WITH
-   1.10.5

@@ -1,7 +1,7 @@
 framework: net45
 source https://www.nuget.org/api/v2
 
-nuget FSharp.Core
+nuget FSharp.Core 3.1.2.1
 nuget Suave
 nuget Suave.Testing
 nuget Arachne.Core
@@ -10,6 +10,7 @@ nuget Arachne.Http
 nuget Chiron
 
 nuget Fuchu.FsCheck
+nuget FsCheck ~> 1.0.4
 nuget Http.fs-prerelease
 
 nuget NuGet.CommandLine
