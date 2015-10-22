@@ -58,7 +58,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
       <ItemGroup>
         <Reference Include="Aether">
-          <HintPath>..\..\packages\Aether\lib\net40\Aether.dll</HintPath>
+          <HintPath>..\..\packages\Aether\lib\net35\Aether.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -189,8 +189,8 @@
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
       <ItemGroup>
-        <Reference Include="Fuchu">
-          <HintPath>..\..\packages\Fuchu-suave\lib\net40\Fuchu.dll</HintPath>
+        <Reference Include="Fuchu.FsCheck">
+          <HintPath>..\..\packages\Fuchu.FsCheck\lib\Fuchu.FsCheck.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -200,8 +200,8 @@
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
       <ItemGroup>
-        <Reference Include="Fuchu.FsCheck">
-          <HintPath>..\..\packages\Fuchu.FsCheck\lib\Fuchu.FsCheck.dll</HintPath>
+        <Reference Include="Fuchu">
+          <HintPath>..\..\packages\Fuchu-suave\lib\net40\Fuchu.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
