@@ -1,6 +1,6 @@
 ﻿#I "bin/Release"
 #r "Suave.dll"
-open Suave.Types
+open Suave
 #r "Arachne.Core.dll"
 #r "Arachne.Language.dll"
 #r "Arachne.Http.dll"

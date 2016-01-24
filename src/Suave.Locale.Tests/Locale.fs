@@ -2,9 +2,6 @@ module Suave.Locale.Tests.Locale
 
 open System
 open Suave
-open Suave.Web
-open Suave.Http
-open Suave.Types
 open Suave.Testing
 open Arachne.Http
 open Arachne.Language

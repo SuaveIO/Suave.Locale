@@ -1,6 +1,6 @@
 ﻿module Suave.Locale
 
-open Suave.Types
+open Suave
 open Arachne.Http
 open Arachne.Language
 open Chiron
@@ -330,11 +330,10 @@ module Negotiate =
 /// Serves the localisation files
 module Http =
   open Suave
-  open Suave.Types
-  open Suave.Http
-  open Suave.Http.Successful
-  open Suave.Http.Applicatives
-  open Suave.Http.Writers
+  open Suave.Operators
+  open Suave.Successful
+  open Suave.Filters
+  open Suave.Writers
   open Negotiate
 
   /// Directly serve the IntlData as a JSON structure; doesn't enforce GET or
@@ -343,9 +342,9 @@ module Http =
     request (fun r ->
       let langs = data.locales |> List.map Range.toString |> String.concat ", "
       data |> Json.serialize |> Json.format |> OK
-      >>= setHeader "Content-Language" langs)
-    >>= setMimeType "application/json; charset=utf-8"
-    >>= setHeader "Vary" "Content-Language"
+      >=> setHeader "Content-Language" langs)
+    >=> setMimeType "application/json; charset=utf-8"
+    >=> setHeader "Vary" "Content-Language"
 
   let api matchPath (negotiate : LangNeg) : WebPart =
-    GET >>= path matchPath >>= request (negotiate >> serve)
+    GET >=> path matchPath >=> request (negotiate >> serve)
