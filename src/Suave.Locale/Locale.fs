@@ -281,7 +281,7 @@ module Negotiate =
       |> function
       | Choice1Of2 x -> x
       | Choice2Of2 () ->
-        failwith "some language source didn't return a value properly for %A, like assumed it would" x
+        failwithf "some language source didn't return a value properly for %A, like assumed it would" x
 
   let negotiateDefault sources : LangNeg =
     let defaults =
