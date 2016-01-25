@@ -84,89 +84,54 @@ module Range =
     | Any -> "*/*"
     | Range rs -> String.concat "-" rs
 
-type MessageKey = string list
-
+type MessageKey = string
 type Translation = string
 
 open Chiron.Operators
 
 type IntlData =
-  { locales  : LanguageRange list
+  { locale   : LanguageRange
     messages : Messages }
 
-  static member Create (ranges : LanguageRange list, ?messages : Messages) =
-    { locales  = ranges
-      messages = defaultArg messages (Messages []) }
-
-  static member Create (range : LanguageRange, ?messages : (MessageKey * Translation) list) =
-    match messages with
-    | None    -> IntlData.Create([range])
-    | Some ms -> IntlData.Create([range], Messages ms)
+  static member Create (range : LanguageRange, messages : Map<MessageKey, Translation>) =
+    { locale = range
+      messages = Messages messages }
 
   static member FromJson (_ : _) : Json<_> =
-    (fun ls m -> { locales = ls |> List.map LanguageRange.Parse; messages = m })
-    <!> Json.read "locales"
+    (fun ls m -> { locale = ls |> LanguageRange.Parse; messages = m })
+    <!> Json.read "locale"
     <*> Json.read "messages"
 
   static member ToJson (x : IntlData) =
-    Json.write "locales" (x.locales |> List.map Range.toString)
+    Json.write "locale" (x.locale |> Range.toString)
     *> Json.write "messages" x.messages
 
-and Messages = Messages of (MessageKey * Translation) list
+and Messages = Messages of Map<MessageKey, Translation>
 with
   static member FromJson (_ : Messages) : Json<Messages> =
-    // { "k": { .. }, "k2": ".." }
-    let rec parse (key : MessageKey) = function
-      | Json.String translation -> [ key, translation ]
-
-      | Json.Object map ->
-        Map.fold (fun s k t ->
-            let key' : MessageKey = key @ [k]
-            s @ parse key' t)
-          [] map
-
-      | Json.Array arr -> List.concat (List.map (parse key) arr)
-      | _              -> []
-
     fun json ->
-      Value (Messages (parse [] json)), json
+      match Json.tryDeserialize json with
+      | Choice1Of2 msgs ->
+        Value (Messages msgs), json
+
+      | Choice2Of2 err ->
+        Error err, json
 
   static member ToJson (Messages msgs) : Json<unit> =
-    let rec traverse m tr : MessageKey -> Map<string, Json> = function
-      | [] ->
-        failwith "assumes non-empty keys, as that wouldn't make sense"
-      | k :: [] ->
-        m |> Map.put k (String tr)
-      | k :: ks as key ->
-        match m |> Map.tryFind k with
-        | Some (Object m') -> m |> Map.put k (Object (traverse m' tr ks))
-        | None             -> m |> Map.put k (Object (traverse Map.empty tr ks))
-        | Some _  as x     ->
-          printfn "Suave.Locale (programmer error): unexpected %A in map %A – this means you have a duplicate key '%s'" x m k
-          m |> Map.put k (Object (traverse m tr ks))
-
-    let reducer (state : Json) (ks, (tr : Translation)) =
-      match state with
-      | Object m -> Object (traverse m tr ks)
-      | _ -> failwith "outer should be a map, as per the line below"
-
-    let convert msgs = msgs |> List.fold reducer (Object Map.empty)
-
-    fun json ->
-      Value (), convert msgs
+    Json.Optic.set Aether.Optics.id_ (Object (msgs |> Map.map (fun k v -> String v)))
 
 [<CompilationRepresentation (CompilationRepresentationFlags.ModuleSuffix)>]
 module IntlData =
   /// Find the key in the list of translations
   let rec find k intl =
     let (Messages kvs) = intl.messages
-    List.find (fun (key, value) -> key = k) kvs |> snd
+    Map.find k kvs
 
   /// Merge the translations from b into a, overwriting exiting items of a and
   /// in the case of differing hierarchies of the two translations, choses the
   /// hierarchy from b.
   let merge a b =
-    { locales  = List.concat [a.locales; b.locales]
+    { locale   = b.locale
       messages = a.messages } // TODO: implement merge algo
 
 /// Return IntlData if you have data for the given range; always return your data
@@ -193,8 +158,10 @@ module LangSources =
   let fromJson jsonStr : IntlSource =
     let data = Json.parse jsonStr |> Json.deserialize
     fun range ->
-      if data.locales |> List.exists ((=) range) || range = Any then Choice1Of2 data
-      else Choice2Of2 ()
+      if data.locale = range || range = Any then
+        Choice1Of2 data
+      else
+        Choice2Of2 ()
 
   // en.json
   // en-GB.json
@@ -340,9 +307,8 @@ module Http =
   /// path.
   let serve (data : IntlData) : WebPart =
     request (fun r ->
-      let langs = data.locales |> List.map Range.toString |> String.concat ", "
       data |> Json.serialize |> Json.format |> OK
-      >=> setHeader "Content-Language" langs)
+      >=> setHeader "Content-Language" (Range.toString data.locale))
     >=> setMimeType "application/json; charset=utf-8"
     >=> setHeader "Vary" "Content-Language"
 
