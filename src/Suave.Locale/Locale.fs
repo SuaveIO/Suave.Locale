@@ -311,7 +311,8 @@ module Http =
       >=> setHeader "Content-Language" (Range.toString data.locale))
     >=> setMimeType "application/json; charset=utf-8"
     // see https://www.fastly.com/blog/best-practices-for-using-the-vary-header#comment-1751365055
-    >=> setHeader "Vary" "Accept-Encoding, Accept-Language"
+    >=> setHeaderValue "Vary" "Accept-Encoding"
+    >=> setHeaderValue "Vary" "Accept-Language"
 
   let api matchPath (negotiate : LangNeg) : WebPart =
     GET >=> path matchPath >=> request (negotiate >> serve)

@@ -32,7 +32,7 @@ NUGET
     Http.fs-prerelease (2.4.1)
       FSharp.Core (>= 3.1.2.1)
     NuGet.CommandLine (3.3.0)
-    Suave (1.1.1)
+    Suave (1.1.2)
       FSharp.Core (>= 3.1.2.5)
     Suave.Testing (1.1.1)
       FSharp.Core (>= 3.1.2.5)

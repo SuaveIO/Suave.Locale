@@ -169,7 +169,12 @@ let http =
         |> fHeader
         |> Client.getResponse
         |> Async.RunSynchronously
-      
+
+      let header = resp.Headers.[Client.ResponseHeader.Vary]
+      Assert.Equal("Should have 'Vary: Accept-Encoding,Accept-Language'",
+                   "Accept-Encoding,Accept-Language",
+                   header)
+
       let data : IntlData =
         resp
         |> Client.Response.readBodyAsString
