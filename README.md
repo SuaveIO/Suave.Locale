@@ -8,7 +8,7 @@ This library's only purpose; to deliver:
 
 ``` javascript
 var intlData = {
-  locales : ['en-GB'],
+  locale : 'en-GB',
   messages: {
     post: {
       meta: 'Posted {ago}, {num, plural, one{# comment} other{# comments}}'
@@ -57,7 +57,7 @@ negotiation function. You can turn it into a `LangNeg` by doing
 ``` fsharp
 let neg : LangNeg =
   Negotiate.negotiate
-    [ ReqSources.parseQs "locale"
+    [ ReqSources.parseQuery "locale"
       ReqSources.parseCookie "locale"
       ReqSources.parseAcceptable
       ReqSources.always (Range [ "en" ])]
@@ -74,11 +74,39 @@ then the header `Acceptable-Language` and if all of these fail, the `en` locale.
 Now you can feed the `LangNeg` into the combinator:
 
 ``` fsharp
-let app : WebPart =
+open Suave
+open Suave.Successful
+open Suave.Operators
+open Suave.Filters
+open Suave.Locale
+
+let app (neg : LangNeg) : WebPart =
+  let print (intl : IntlData) =
+    OK (sprintf "You have locale '%s'" intl.locale)
+
+  let printLocalised (intl : IntlData) =
+    // or you can use Map.find or Map.tryFind
+    OK (intl |> IntlData.find "my.localised.greeing")
+
   choose [
-    Suave.Locale.Http.api "/intl" neg
+    // => Content-Type: application/json; charset-utf-8
+    GET >=> path "/i18n/messages"
+        >=> Api.serveJson neg
+
+    // always returns results in the same language, but different content, so put a vary
+    // header in the result:
+    GET >=> path "/i18n/sample"
+        >=> Api.negotiate neg print
+        >=> Api.setVary
+
+    // this always returns with Vary and Content-Language headers
+    GET >=> path "/i18n/sample"
+        >=> Api.negotiateWithHeaders neg printLocalised
+
     Browse.filesHome
-    ]
+  ]
+
+startWebServer defaultConfig (app neg) // => blocks, prints startup info
 ```
 
 And you have yourself a splendid new internationalisation system!

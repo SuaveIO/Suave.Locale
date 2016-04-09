@@ -2,6 +2,8 @@ module Suave.Locale.Tests.Locale
 
 open System
 open Suave
+open Suave.Filters
+open Suave.Operators
 open Suave.Testing
 open Arachne.Http
 open Arachne.Language
@@ -22,6 +24,7 @@ let range =
       testCase "en-GB-XPrivate" <| fun _ ->
         Assert.Equal("next up", Range ["en"; "GB"], Range.generalise (Range ["en"; "GB"; "XPrivate"]))
       ]
+
     testList "checkParent" [
       testCase "en, en => Range [ en ]" <| fun _ ->
         Assert.Equal("", Choice1Of2 (Range ["en"]), Range.checkParent (Range ["en"]) (Range ["en"]))
@@ -62,10 +65,6 @@ let intlData =
       Assert.Equal("", data, data |> Json.serialize |> Json.deserialize)
 
     testPropertyWithConfig fsCheckConfig "back and forth" <| fun (intl : IntlData) ->
-//      Tests.skiptest ("TODO: ensure that FsCheck doesn't generate two translation keys k1, k2 such that" +
-//                      "k1 is a leaf node and k1 is also a prefix of k2 as this will make input" +
-//                      "not equal to output and fail the property")
-
       // TODO: ensure that FsCheck doesn't generate identical translation keys k1, k2
       let subject : IntlData = intl |> Json.serialize |> Json.deserialize
 
@@ -78,12 +77,10 @@ let intlData =
           reraise ()
 
     testCase "merge" <| fun _ ->
-      Tests.skiptest "To be done – help requested"
-
       let svSE =
         [ "frontpage.menu.home", "Hem" // both have, this overwritten
           "frontpage.menu.logout", "Logga Ut" // fi doesn't have
-          "settings.username.haf", "haf" // fi doesn't have, new parent key
+          "settings.username", "haf" // fi doesn't have, new parent key
           "frontpage.menu.submenu", "TODO" // fi has extra level
         ] |> Map.ofList
 
@@ -108,7 +105,7 @@ let intlData =
       Assert.Equal("merges locales to right locale", Range [ "sv"; "FI" ], merged.locale)
 
       for KeyValue (k, tr) in expMerged do
-        Assert.Equal(sprintf "merged %A" k, tr, merged |> IntlData.find k)
+        Assert.Equal(sprintf "merged %A" k, tr, try merged |> IntlData.find k with _ -> "")
     ]
 
 [<Tests>]
@@ -159,19 +156,26 @@ let http =
     |> Negotiate.assumeSource
 
   let clientNegf fHeader =
-    let ctx = runWith defaultConfig (Http.api "/intl" neg)
+    let ctx = runWith defaultConfig (path "/i18n/messages" >=> Api.serveJson neg)
 
     try
       use resp =
-        Client.createRequest Client.Get (Uri "http://127.0.0.1:8083/intl")
+        Client.createRequest Client.Get (Uri "http://127.0.0.1:8083/i18n/messages")
         |> fHeader
         |> Client.getResponse
         |> Async.RunSynchronously
 
-      let header = resp.Headers.[Client.ResponseHeader.Vary]
       Assert.Equal("Should have 'Vary: Accept-Encoding,Accept-Language'",
                    "Accept-Encoding,Accept-Language",
-                   header)
+                   resp.Headers.[Client.ResponseHeader.Vary])
+
+      Assert.Equal("Should have Content-Type: application/json; charset=utf-8",
+                   "application/json; charset=utf-8",
+                   resp.Headers.[Client.ResponseHeader.ContentTypeResponse])
+
+      Assert.Equal("Should have Content-Language: sv-FI header",
+                   "sv-FI",
+                   resp.Headers.[Client.ResponseHeader.ContentLanguage])
 
       let data : IntlData =
         resp

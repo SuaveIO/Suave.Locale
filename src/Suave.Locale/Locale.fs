@@ -1,4 +1,6 @@
-﻿namespace Suave.Locale
+﻿/// Serves the the app messages or negotiates language in your app, calling you
+/// back with the response.
+namespace Suave.Locale
 #nowarn "64"
 
 open Suave
@@ -10,11 +12,17 @@ open Chiron
 module internal List =
   let tryPickCh f def =
     let rec inner = function
-      | [] -> Choice2Of2 def
+      | [] ->
+        Choice2Of2 def
+
       | x :: xs ->
         match f x with
-        | Choice1Of2 x -> Choice1Of2 x
-        | Choice2Of2 _ -> inner xs
+        | Choice1Of2 x ->
+          Choice1Of2 x
+
+        | Choice2Of2 _ ->
+          inner xs
+
     inner
 
 module Range =
@@ -188,7 +196,7 @@ module ReqSources =
         >> Choice.bind ((fun c -> c.value) >> AcceptLanguage.tryParse))
 
   /// Find the locale from the query string
-  let parseQs name : ReqSource =
+  let parseQuery name : ReqSource =
     fun req ->
       req.queryParam name
       |> Choice.bind (AcceptLanguage.tryParse)
@@ -219,20 +227,27 @@ module Negotiate =
   let findParent (source : IntlSource) target =
     let rec inner curr =
       match source curr with
-      | Choice1Of2 x -> Choice1Of2 x
+      | Choice1Of2 x ->
+        Choice1Of2 x
+
       | Choice2Of2 () ->
         let next = Range.generalise curr
         //printfn "next=%A, curr=%A, eq=%b" next curr (next = curr)
         if next = curr then Choice2Of2 ()
         else inner next
+
     inner target
 
   let findSource (sources : IntlSource list) (AcceptableLanguage (r, w)) =
     let rec inner = function
-      | [] -> Choice2Of2 ()
-      | s :: ss -> match findParent s r with
-                   | Choice1Of2 x -> Choice1Of2 x
-                   | Choice2Of2 _ -> inner ss
+      | [] ->
+        Choice2Of2 ()
+
+      | s :: ss ->
+        match findParent s r with
+        | Choice1Of2 x -> Choice1Of2 x
+        | Choice2Of2 _ -> inner ss
+
     inner sources
 
   let findIntl sources (AcceptLanguage langs) =
@@ -275,8 +290,8 @@ module Negotiate =
   let negotiateDefault sources : LangNeg =
     let defaults =
       [ ReqSources.parseAcceptable
-        ReqSources.parseCookie "lang" ]
-      // ReqSources.parseQs "lang" // not a good default as it may be shared in links
+        ReqSources.parseCookie "locale" ]
+      // ReqSources.parseQs "locale" // not a good default as it may be shared in links
 
     fun req ->
       match negotiate defaults sources req with
@@ -286,8 +301,7 @@ module Negotiate =
       | Choice2Of2 _ ->
         failwithf "no IntlSource returned a translation, of %A" sources
 
-/// Serves the localisation files
-module Http =
+module Api =
   open Suave
   open Suave.Operators
   open Suave.Successful
@@ -295,16 +309,41 @@ module Http =
   open Suave.Writers
   open Negotiate
 
-  /// Directly serve the IntlData as a JSON structure; doesn't enforce GET or
-  /// path.
-  let serve (data : IntlData) : WebPart =
-    request (fun r ->
-      data |> Json.serialize |> Json.format |> OK
-      >=> setHeader "Content-Language" (Range.toString data.locale))
-    >=> setMimeType "application/json; charset=utf-8"
+  /// Sets header values on the Vary header, such as:
+  /// 'Vary: Accept-Encoding,Accept-Language' using the `setHeaderValue`
+  /// function.
+  let setVary : WebPart=
     // see https://www.fastly.com/blog/best-practices-for-using-the-vary-header#comment-1751365055
-    >=> setHeaderValue "Vary" "Accept-Encoding"
+    setHeaderValue "Vary" "Accept-Encoding"
     >=> setHeaderValue "Vary" "Accept-Language"
 
-  let api matchPath (negotiate : LangNeg) : WebPart =
-    GET >=> path matchPath >=> request (negotiate >> serve)
+  /// Sets the Content-Language header value to what has been negotiated.
+  let setContentLanguage (data : IntlData) : WebPart =
+    setHeaderValue "Content-Language" (Range.toString data.locale)
+
+  let setHeaders (data : IntlData) : WebPart =
+    setVary >=> setContentLanguage data
+
+  /// Runs the negotiator and feeds the result into `fCont`. Doesn't cause any
+  /// side-effects to happen to the response
+  let negotiate (negotiator : LangNeg) (fCont : IntlData -> WebPart) : WebPart =
+    request (negotiator >> fCont)
+
+  /// Runs the negotiator, assumes `fCont` changes its output to the negotiated
+  /// language so it sets Content-Language, and then passes the request to
+  /// fCont.
+  let negotiateWithHeaders (negotiator : LangNeg) (fCont : IntlData -> WebPart) : WebPart =
+    negotiate negotiator (fun data ->
+      setContentLanguage data
+      >=> setVary
+      >=> fCont data)
+
+  /// Directly serve the IntlData as a JSON structure; doesn't enforce GET or
+  /// path.
+  let serveJson (negotiate : LangNeg) : WebPart =
+
+    let serveData (data : IntlData) : WebPart =
+      warbler (fun _ -> data |> Json.serialize |> Json.format |> OK)
+      >=> setMimeType "application/json; charset=utf-8"
+
+    negotiateWithHeaders negotiate serveData
