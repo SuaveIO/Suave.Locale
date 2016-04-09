@@ -205,14 +205,17 @@ module ReqSources =
     fun _ ->
       Choice1Of2 (AcceptLanguage [ AcceptableLanguage (range, None) ])
 
+type TryLangNeg =
+  ReqSource list -> IntlSource list -> HttpRequest -> Choice<IntlData, unit>
+
+type LangNeg =
+  HttpRequest -> IntlData
+
 module Negotiate =
 
   (* Do a depth-first search of the accepted langs, sources and parent-keys
      of the given language range.
   *)
-
-  type TryLangNeg = ReqSource list -> IntlSource list -> HttpRequest -> Choice<IntlData, unit>
-  type LangNeg = HttpRequest -> IntlData
 
   // findParent s ["en";"GB"]
   //   s ["en"; "GB"] => Choice2Of2 ()
