@@ -14,3 +14,5 @@ nuget FsCheck
 nuget Http.fs-prerelease
 
 nuget NuGet.CommandLine
+
+github haf/YoLo YoLo.fs

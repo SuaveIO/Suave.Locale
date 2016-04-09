@@ -9,16 +9,17 @@ open Arachne.Language
 #r "Aether.dll"
 #r "Chiron.dll"
 open Chiron
+#load "../../paket-files/haf/YoLo/YoLo.fs"
 #load "Locale.fs"
 open Suave.Locale
 
-let (AcceptLanguage langs) = AcceptLanguage.Parse("da, en-gb;q=0.8, en;q=0.7,*,lad-UK-Han")
+let (AcceptLanguage langs) = AcceptLanguage.parse("da, en-gb;q=0.8, en;q=0.7,*,lad-UK-Han")
 
 (*
 
 type IntlData with
   static member FromJson (_ : IntlData) =
-    IntlData.Create(Range ["en"])
+    IntlData.create(Range ["en"])
 
 and Messages with
   static member FromJson (_: Messages) =

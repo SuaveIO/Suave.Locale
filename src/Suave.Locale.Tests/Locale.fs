@@ -38,7 +38,7 @@ let range =
     ]
 
 let emptyData (range : LanguageRange) =
-  IntlData.Create(
+  IntlData.create(
     range,
     """{"misc.title":"Häftig titel"}""" |> Json.parse |> Json.deserialize)
 
@@ -53,12 +53,12 @@ let intlData =
       Assert.Equal("title", "Awesome Title", intl |> IntlData.find "misc.title")
 
     testCase "multi-length key" <| fun _ ->
-      let data = {locale = Range ["en"]; messages = Messages (Map.empty |> Map.add "hello" "Hello World") }
+      let data = {locale = Range ["en"]; messages = Map.empty |> Map.add "hello" "Hello World" }
       //printfn "json: %A" (data |> Json.serialize)
       Assert.Equal("", data, data |> Json.serialize |> Json.deserialize)
 
     testCase "back and forth with single key-message" <| fun _ ->
-      let data = {locale = Range ["en"]; messages = Messages (Map.empty |> Map.add "L^" "a") }
+      let data = {locale = Range ["en"]; messages = Map.empty |> Map.add "L^" "a" }
       Assert.Equal("", data, data |> Json.serialize |> Json.deserialize)
 
     testPropertyWithConfig fsCheckConfig "back and forth" <| fun (intl : IntlData) ->
@@ -68,11 +68,10 @@ let intlData =
 
       // TODO: ensure that FsCheck doesn't generate identical translation keys k1, k2
       let subject : IntlData = intl |> Json.serialize |> Json.deserialize
-      let (Messages msgs) = intl.messages
-      for KeyValue (k, tr) in msgs do
-        let (Messages trMsgs) = subject.messages
+
+      for KeyValue (k, tr) in intl.messages do
         try
-          Assert.Equal("eq", tr, trMsgs |> Map.find k)
+          Assert.Equal("eq", tr, subject.messages |> Map.find k)
         with e ->
           let b : string -> byte [] = System.Text.Encoding.UTF8.GetBytes
           printfn "key: %A, subject: %A, expected: %A" (b k) subject intl
@@ -102,12 +101,11 @@ let intlData =
           "frontpage.menu.submenu.details", "Detaljer"
         ] |> Map.ofList
 
-      let sv = IntlData.Create(Range ["sv"; "SE"], svSE)
-      let fi = IntlData.Create(Range ["sv"; "FI"], svFI)
+      let sv = IntlData.create(Range ["sv"; "SE"], svSE)
+      let fi = IntlData.create(Range ["sv"; "FI"], svFI)
 
       let merged = IntlData.merge sv fi
       Assert.Equal("merges locales to right locale", Range [ "sv"; "FI" ], merged.locale)
-      let (Messages subject) = merged.messages
 
       for KeyValue (k, tr) in expMerged do
         Assert.Equal(sprintf "merged %A" k, tr, merged |> IntlData.find k)

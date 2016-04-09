@@ -26,6 +26,10 @@ asmver_files :assembly_info do |a|
   end
 end
 
+task :yolo do
+  system %{ruby -pi.bak -e "gsub(/module internal YoLo/, 'module internal Suave.Locale.YoLo')" paket-files/haf/YoLo/YoLo.fs} unless Albacore.windows?
+end
+
 desc 'Perform fast build (warn: doesn\'t d/l deps)'
 build :quick_compile do |b|
   b.prop 'Configuration', Configuration
@@ -34,7 +38,7 @@ build :quick_compile do |b|
 end
 
 task :paket_bootstrap do
-system 'tools/paket.bootstrapper.exe', clr_command: true unless   File.exists? 'tools/paket.exe'
+system 'tools/paket.bootstrapper.exe', clr_command: true unless File.exists? 'tools/paket.exe'
 end
 
 desc 'restore all nugets as per the packages.config files'
@@ -43,7 +47,7 @@ task :restore => :paket_bootstrap do
 end
 
 desc 'Perform full build'
-build :compile => [:versioning, :restore, :assembly_info] do |b|
+build :compile => [:versioning, :restore, :assembly_info, :yolo] do |b|
   b.prop 'Configuration', Configuration
   b.sln = 'src/Suave.Locale.sln'
 end

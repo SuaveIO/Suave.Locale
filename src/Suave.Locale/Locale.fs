@@ -1,91 +1,75 @@
-﻿module Suave.Locale
+﻿namespace Suave.Locale
+#nowarn "64"
 
 open Suave
+open Suave.Locale.YoLo
 open Arachne.Http
 open Arachne.Language
 open Chiron
 
-[<AutoOpen>]
-module internal Prelude =
-  module Choice =
-    let map f = function
-      | Choice1Of2 x -> Choice1Of2 (f x)
-      | Choice2Of2 y -> Choice2Of2 y
-
-    let mapSnd f = function
-      | Choice1Of2 x -> Choice1Of2 x
-      | Choice2Of2 y -> Choice2Of2 (f y)
-
-
-    let bind f = function
-      | Choice1Of2 x -> f x
-      | Choice2Of2 y -> Choice2Of2 y
-
-    let bindSnd f = function
-      | Choice1Of2 x -> Choice1Of2 x
-      | Choice2Of2 y -> f y
-
-    let force def = function
-      | Choice1Of2 x -> x
-      | Choice2Of2 _ -> def
-
-    let ofOption def = function
-      | Some x -> Choice1Of2 x
-      | None   -> Choice2Of2 def
-
-  module Option =
-    let ofChoice = function
-      | Choice1Of2 x -> Some x
-      | Choice2Of2 _ -> None
-
-  module List =
-    let tryPickCh f def =
-      let rec inner = function
-        | [] -> Choice2Of2 def
-        | x :: xs ->
-          match f x with
-          | Choice1Of2 x -> Choice1Of2 x
-          | Choice2Of2 _ -> inner xs
-      inner
-
-  module Map =
-    let put k v m =
-      match m |> Map.tryFind k with
-      | None -> m |> Map.add k v
-      | Some _ -> m |> Map.remove k |> Map.add k v
+module internal List =
+  let tryPickCh f def =
+    let rec inner = function
+      | [] -> Choice2Of2 def
+      | x :: xs ->
+        match f x with
+        | Choice1Of2 x -> Choice1Of2 x
+        | Choice2Of2 _ -> inner xs
+    inner
 
 module Range =
   /// Find
   let generalise = function
-    | Any       -> Any
-    | Range []  -> Range []
-    | Range [c] -> Range [c]
-    | Range cs  -> Range (List.rev (List.tail (List.rev cs)))
+    | Any ->
+      Any
+
+    | Range [] ->
+      Range []
+
+    | Range [c] ->
+      Range [c]
+
+    | Range cs ->
+      Range (List.rev (List.tail (List.rev cs)))
 
   /// Find the matching child sub-range for the given parent
   let checkParent parent mchild =
     match parent, mchild with
-    | Any, _ -> Choice1Of2 mchild
-    | _, Any -> Choice2Of2 ()
+    | Any, _ ->
+      Choice1Of2 mchild
+
+    | _, Any ->
+      Choice2Of2 ()
+
     | Range ps, Range cs ->
       let rec find acc = function
-        | [] -> Choice2Of2 ()
+        | [] ->
+          Choice2Of2 ()
+
         | lang :: xs ->
           let acc' = acc @ [ lang ]
           if ps = acc' then Choice1Of2 acc' else find acc' xs
+
       find [] cs |> Choice.map Range
 
   let isParent parent mchild =
     match checkParent parent mchild with
-    | Choice1Of2 _ -> true
-    | _ -> false
+    | Choice1Of2 _ ->
+      true
+
+    | _ ->
+      false
 
   let toString = function
-    | Any -> "*/*"
-    | Range rs -> String.concat "-" rs
+    | Any ->
+      "*/*"
+
+    | Range rs ->
+      String.concat "-" rs
 
 type MessageKey = string
 type Translation = string
+type Messages = Map<MessageKey, Translation>
 
 open Chiron.Operators
 
@@ -93,46 +77,35 @@ type IntlData =
   { locale   : LanguageRange
     messages : Messages }
 
-  static member Create (range : LanguageRange, messages : Map<MessageKey, Translation>) =
-    { locale = range
-      messages = Messages messages }
+  static member create (range : LanguageRange, messages : Messages) =
+    { locale   = range
+      messages = messages }
 
   static member FromJson (_ : _) : Json<_> =
-    (fun ls m -> { locale = ls |> LanguageRange.Parse; messages = m })
+    (fun ls m -> { locale = LanguageRange.parse ls; messages = m })
     <!> Json.read "locale"
     <*> Json.read "messages"
 
   static member ToJson (x : IntlData) =
-    Json.write "locale" (x.locale |> Range.toString)
+    Json.write "locale" (Range.toString x.locale)
     *> Json.write "messages" x.messages
 
-and Messages = Messages of Map<MessageKey, Translation>
-with
-  static member FromJson (_ : Messages) : Json<Messages> =
-    fun json ->
-      match Json.tryDeserialize json with
-      | Choice1Of2 msgs ->
-        Value (Messages msgs), json
-
-      | Choice2Of2 err ->
-        Error err, json
-
-  static member ToJson (Messages msgs) : Json<unit> =
+  static member ToJson msgs : Json<unit> =
     Json.Optic.set Aether.Optics.id_ (Object (msgs |> Map.map (fun k v -> String v)))
 
 [<CompilationRepresentation (CompilationRepresentationFlags.ModuleSuffix)>]
 module IntlData =
   /// Find the key in the list of translations
   let rec find k intl =
-    let (Messages kvs) = intl.messages
-    Map.find k kvs
+    intl.messages |> Map.find k
 
   /// Merge the translations from b into a, overwriting exiting items of a and
   /// in the case of differing hierarchies of the two translations, choses the
   /// hierarchy from b.
-  let merge a b =
+  let merge (a : IntlData) (b : IntlData) =
+    let combined = b.messages |> Map.fold (fun acc key t -> acc |> Map.put key t) a.messages
     { locale   = b.locale
-      messages = a.messages } // TODO: implement merge algo
+      messages = combined }
 
 /// Return IntlData if you have data for the given range; always return your data
 /// if you're given the Any range. For non-Any ranges, only return for exact
@@ -180,8 +153,12 @@ module LangSources =
     fun range ->
       let name =
         match range with
-        | Any -> "_.json"
-        | Range ns -> (String.concat "-" ns) + ".json"
+        | Any ->
+          "_.json"
+
+        | Range ns ->
+          (String.concat "-" ns) + ".json"
+
       if test name then Choice1Of2 (get name) else Choice2Of2 ()
 
   open Chiron
@@ -190,7 +167,7 @@ module LangSources =
   //let jsonFile =
   //  testAndGetJson File.Exists (File.ReadAllText >> Json.parse >> Json.deserialize)
 
-type ReqSource = HttpRequest -> Choice<AcceptLanguage, unit>
+type ReqSource = HttpRequest -> Choice<AcceptLanguage, (* error msg *) string>
 
 module ReqSources =
 
@@ -198,20 +175,23 @@ module ReqSources =
   let parseAcceptable : ReqSource =
     fun req ->
       req.header "accept-language"
-      |> Choice.mapSnd (fun _ -> ())
-      |> Choice.bind (fun str -> AcceptLanguage.TryParse(str) |> Choice.ofOption ())
+      |> Choice.bind (AcceptLanguage.tryParse)
 
   /// Find the locale from a cookie with a name
   let parseCookie name : ReqSource =
     fun req ->
-      Choice2Of2 ()
+      req.header "cookie"
+      |> Choice.map Cookie.parseCookies
+      |> Choice.bind (
+        List.tryFind (fun (cookie : HttpCookie) -> String.equalsCaseInsensitve name cookie.name)
+        >> Choice.ofOption (sprintf "Cookie named '%s' not found in request" name)
+        >> Choice.bind ((fun c -> c.value) >> AcceptLanguage.tryParse))
 
   /// Find the locale from the query string
   let parseQs name : ReqSource =
     fun req ->
       req.queryParam name
-      |> Choice.mapSnd (fun _ -> ())
-      |> Choice.bind (fun str -> AcceptLanguage.TryParse(str) |> Choice.ofOption ())
+      |> Choice.bind (AcceptLanguage.tryParse)
 
   let always range : ReqSource =
     fun _ ->
@@ -257,10 +237,17 @@ module Negotiate =
 
   let findIntl sources (AcceptLanguage langs) =
     let rec inner = function
-      | [] -> Choice2Of2 ()
-      | l :: ls -> match findSource sources l with
-                   | Choice1Of2 x -> Choice1Of2 x
-                   | Choice2Of2 _ -> inner ls
+      | [] ->
+        Choice2Of2 ()
+
+      | l :: ls ->
+        match findSource sources l with
+        | Choice1Of2 x ->
+          Choice1Of2 x
+
+        | Choice2Of2 _ ->
+          inner ls
+
     inner langs
 
   let negotiate : TryLangNeg =
@@ -279,7 +266,9 @@ module Negotiate =
     fun x ->
       f x
       |> function
-      | Choice1Of2 x -> x
+      | Choice1Of2 x ->
+        x
+
       | Choice2Of2 () ->
         failwithf "some language source didn't return a value properly for %A, like assumed it would" x
 
@@ -291,8 +280,11 @@ module Negotiate =
 
     fun req ->
       match negotiate defaults sources req with
-      | Choice1Of2 x -> x
-      | Choice2Of2 _ -> failwithf "no IntlSource returned a translation, of %A" sources
+      | Choice1Of2 x ->
+        x
+
+      | Choice2Of2 _ ->
+        failwithf "no IntlSource returned a translation, of %A" sources
 
 /// Serves the localisation files
 module Http =
