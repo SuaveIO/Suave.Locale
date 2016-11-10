@@ -27,7 +27,7 @@ asmver_files :assembly_info do |a|
 end
 
 task :yolo do
-  system %{ruby -pi.bak -e "gsub(/module internal YoLo/, 'module internal Suave.Locale.YoLo')" paket-files/haf/YoLo/YoLo.fs} unless Albacore.windows?
+  system %{ruby -pi.bak -e "gsub(/module YoLo/, 'module internal Suave.Locale.YoLo')" paket-files/haf/YoLo/YoLo.fs} unless Albacore.windows?
 end
 
 desc 'Perform fast build (warn: doesn\'t d/l deps)'

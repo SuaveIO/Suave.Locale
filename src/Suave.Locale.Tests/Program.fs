@@ -1,8 +1,8 @@
 module Suave.Locale.Tests.Program
 
-open Fuchu
+open Expecto
 
 [<EntryPoint>]
 let main argv =
-  Tests.defaultMainThisAssembly argv
+  runTestsInAssembly defaultConfig argv
   //Tests.run Suave.Locale.Tests.x

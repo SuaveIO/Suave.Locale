@@ -1,8 +1,8 @@
 FSharp.Core
 Suave
 Suave.Testing
-Fuchu.FsCheck
+Expecto.FsCheck
 Arachne.Language
 Arachne.Http
 Chiron
-Http.fs-prerelease
+Http.fs

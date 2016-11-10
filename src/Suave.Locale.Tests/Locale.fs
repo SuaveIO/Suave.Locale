@@ -1,42 +1,57 @@
 module Suave.Locale.Tests.Locale
 
 open System
+open Arachne.Http
+open Arachne.Language
+open Chiron
+open Expecto
 open Suave
 open Suave.Filters
 open Suave.Operators
 open Suave.Testing
-open Arachne.Http
-open Arachne.Language
-open Chiron
 open Suave.Locale
-open Fuchu
+open Hopac
 
 [<Tests>]
 let range =
   testList "Range" [
     testList "generalise" [
       testCase "en-GB" <| fun _ ->
-        Assert.Equal("next up", Range ["en"], Range.generalise (Range ["en"; "GB"]))
+        let actual = Range.generalise (Range ["en"; "GB"])
+        let expected = Range ["en"]
+        Expect.equal actual expected "next up"
 
       testCase "en" <| fun _ ->
-        Assert.Equal("next up", Range ["en"], Range.generalise (Range ["en"]))
+        let actual = Range.generalise (Range ["en"])
+        let expected = Range ["en"]
+        Expect.equal actual expected "next up"
 
       testCase "en-GB-XPrivate" <| fun _ ->
-        Assert.Equal("next up", Range ["en"; "GB"], Range.generalise (Range ["en"; "GB"; "XPrivate"]))
+        let actual = Range.generalise (Range ["en"; "GB"; "XPrivate"])
+        let expected = Range ["en"; "GB"]
+        Expect.equal actual expected "next up"
       ]
 
     testList "checkParent" [
       testCase "en, en => Range [ en ]" <| fun _ ->
-        Assert.Equal("", Choice1Of2 (Range ["en"]), Range.checkParent (Range ["en"]) (Range ["en"]))
+        let actual = Range.checkParent (Range ["en"]) (Range ["en"])
+        let expected = Choice1Of2 (Range ["en"])
+        Expect.equal actual expected ""
 
       testCase "en, en-GB => Choice1Of2 $ Range [ en ]" <| fun _ ->
-        Assert.Equal("", Choice1Of2 (Range ["en"]), Range.checkParent (Range ["en"]) (Range ["en"; "GB"]))
+        let actual = Range.checkParent (Range ["en"]) (Range ["en"; "GB"])
+        let expected = Choice1Of2 (Range ["en"])
+        Expect.equal actual expected ""
 
       testCase "en-GB, en => Choice2Of2 ()" <| fun _ ->
-        Assert.Equal("", Choice2Of2 (), Range.checkParent (Range ["en"; "GB"]) (Range ["en"]))
+        let actual = Range.checkParent (Range ["en"; "GB"]) (Range ["en"])
+        let expected = Choice2Of2 ()
+        Expect.equal actual expected ""
 
       testCase "en, Any => Range [ en ]" <| fun _ ->
-        Assert.Equal("", Choice1Of2 (Range ["en"]), Range.checkParent (Range ["en"]) (Range ["en"]))
+        let actual = Range.checkParent (Range ["en"]) (Range ["en"])
+        let expected = Choice1Of2 (Range ["en"])
+        Expect.equal actual expected ""
       ]
     ]
 
@@ -52,17 +67,22 @@ let intlData =
   testList "intl data" [
     testCase "from json" <| fun _ ->
       let intl : IntlData = Json.parse wonkyMsgs |> Json.deserialize
-      Assert.Equal("locale", Range ["en"], intl.locale)
-      Assert.Equal("title", "Awesome Title", intl |> IntlData.find "misc.title")
+      let expected = Range ["en"]
+      Expect.equal intl.locale expected "locale"
+
+      let actual = intl |> IntlData.find "misc.title"
+      Expect.equal actual "Awesome Title" "title"
 
     testCase "multi-length key" <| fun _ ->
       let data = {locale = Range ["en"]; messages = Map.empty |> Map.add "hello" "Hello World" }
       //printfn "json: %A" (data |> Json.serialize)
-      Assert.Equal("", data, data |> Json.serialize |> Json.deserialize)
+      let actual = data |> Json.serialize |> Json.deserialize
+      Expect.equal actual data ""
 
     testCase "back and forth with single key-message" <| fun _ ->
       let data = {locale = Range ["en"]; messages = Map.empty |> Map.add "L^" "a" }
-      Assert.Equal("", data, data |> Json.serialize |> Json.deserialize)
+      let actual = data |> Json.serialize |> Json.deserialize
+      Expect.equal actual data ""
 
     testPropertyWithConfig fsCheckConfig "back and forth" <| fun (intl : IntlData) ->
       // TODO: ensure that FsCheck doesn't generate identical translation keys k1, k2
@@ -70,7 +90,8 @@ let intlData =
 
       for KeyValue (k, tr) in intl.messages do
         try
-          Assert.Equal("eq", tr, subject.messages |> Map.find k)
+          let actual = subject.messages |> Map.find k
+          Expect.equal actual tr "eq"
         with e ->
           let b : string -> byte [] = System.Text.Encoding.UTF8.GetBytes
           printfn "key: %A, subject: %A, expected: %A" (b k) subject intl
@@ -102,10 +123,12 @@ let intlData =
       let fi = IntlData.create(Range ["sv"; "FI"], svFI)
 
       let merged = IntlData.merge sv fi
-      Assert.Equal("merges locales to right locale", Range [ "sv"; "FI" ], merged.locale)
+      let expected = Range [ "sv"; "FI" ]
+      Expect.equal merged.locale expected "merges locales to right locale"
 
       for KeyValue (k, tr) in expMerged do
-        Assert.Equal(sprintf "merged %A" k, tr, try merged |> IntlData.find k with _ -> "")
+        let actual = try merged |> IntlData.find k with _ -> ""
+        Expect.equal actual tr (sprintf "merged %A" k)
     ]
 
 [<Tests>]
@@ -125,20 +148,24 @@ let negotiate =
   testList "Negotiate" [
     testList "findParent" [
       testCase "(Source 'en') Any => Choice1Of2 'en'" <| fun _ ->
-        Assert.Equal("", Choice1Of2 (emptyData (Range ["en"])), Negotiate.findParent en Any)
+        let actual = Negotiate.findParent en Any
+        let expected = Choice1Of2 (emptyData (Range ["en"]))
+        Expect.equal actual expected ""
 
       testCase "(Source 'en-GB') 'en' => Choice2Of2 ()" <| fun _ ->
-        Assert.Equal("", Choice2Of2 (), Negotiate.findParent enGB (Range ["en"]))
+        let actual = Negotiate.findParent enGB (Range ["en"])
+        let expected = Choice2Of2 ()
+        Expect.equal actual expected ""
 
       testCase "(Source 'en-GB') 'en-GB' => Choice2Of2 ()" <| fun _ ->
-        Assert.Equal("",
-                     Choice1Of2 (emptyData (Range ["en"; "GB"])),
-                     Negotiate.findParent enGB (Range ["en"; "GB"]))
+        let actual = Negotiate.findParent enGB (Range ["en"; "GB"])
+        let expected = Choice1Of2 (emptyData (Range ["en"; "GB"]))
+        Expect.equal actual expected ""
 
       testCase "(Source 'en') 'en-GB' => Choice1Of2 'en'" <| fun _ ->
-        Assert.Equal("",
-                     Choice1Of2 (emptyData (Range ["en"])),
-                     Negotiate.findParent en (Range ["en"; "GB"]))
+        let actual = Negotiate.findParent en (Range ["en"; "GB"])
+        let expected = Choice1Of2 (emptyData (Range ["en"]))
+        Expect.equal actual expected ""
     ]
   ]
 
@@ -160,27 +187,26 @@ let http =
 
     try
       use resp =
-        Client.createRequest Client.Get (Uri "http://127.0.0.1:8083/i18n/messages")
+        Client.Request.create Client.Get (Uri "http://127.0.0.1:8083/i18n/messages")
         |> fHeader
         |> Client.getResponse
-        |> Async.RunSynchronously
+        |> run
 
-      Assert.Equal("Should have 'Vary: Accept-Encoding,Accept-Language'",
-                   "Accept-Encoding,Accept-Language",
-                   resp.Headers.[Client.ResponseHeader.Vary])
+      let actual = resp.headers.[Client.ResponseHeader.Vary]
+      let expected = "Accept-Encoding,Accept-Language"
+      Expect.equal expected actual "Should have 'Vary: Accept-Encoding,Accept-Language'"
 
-      Assert.Equal("Should have Content-Type: application/json; charset=utf-8",
-                   "application/json; charset=utf-8",
-                   resp.Headers.[Client.ResponseHeader.ContentTypeResponse])
+      let actual = resp.headers.[Client.ResponseHeader.ContentTypeResponse]
+      let expected = "application/json; charset=utf-8"
+      Expect.equal actual expected "Should have Content-Type: application/json; charset=utf-8"
 
-      Assert.Equal("Should have Content-Language: sv-FI header",
-                   "sv-FI",
-                   resp.Headers.[Client.ResponseHeader.ContentLanguage])
+      let actual = resp.headers.[Client.ResponseHeader.ContentLanguage]
+      Expect.equal actual "sv-FI" "Should have Content-Language: sv-FI header"
 
       let data : IntlData =
         resp
         |> Client.Response.readBodyAsString
-        |> Async.RunSynchronously
+        |> run
         |> Json.parse
         |> Json.deserialize
 
@@ -189,18 +215,21 @@ let http =
     finally
       disposeContext ctx
 
-  let clientNeg header = clientNegf (Client.withHeader (Client.RequestHeader.AcceptLanguage header))
+  let clientNeg header = clientNegf (Client.Request.setHeader (Client.RequestHeader.AcceptLanguage header))
 
   testList "Http" [
     testCase "negotiate" <| fun _ ->
       let data = clientNeg "ro, en, sv"
-      Assert.Equal("locale", Range [ "sv"; "FI" ], data.locale)
+      let expected = Range [ "sv"; "FI" ]
+      Expect.equal data.locale expected "locale"
 
     testCase "negotiate non existing, chooses default" <| fun _ ->
       let data = clientNeg "ro"
-      Assert.Equal("locale", Range [ "sv"; "FI" ], data.locale)
+      let expected = Range [ "sv"; "FI" ]
+      Expect.equal data.locale expected "locale"
 
     testCase "negotiate w/ mute client, choose default" <| fun _ ->
       let data = clientNegf id
-      Assert.Equal("locale", Range [ "sv"; "FI" ], data.locale)
+      let expected = Range [ "sv"; "FI" ]
+      Expect.equal data.locale expected "locale"
     ]

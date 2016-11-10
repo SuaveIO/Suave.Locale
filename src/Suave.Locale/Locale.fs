@@ -191,7 +191,7 @@ module ReqSources =
       req.header "cookie"
       |> Choice.map Cookie.parseCookies
       |> Choice.bind (
-        List.tryFind (fun (cookie : HttpCookie) -> String.equalsCaseInsensitve name cookie.name)
+        List.tryFind (fun (cookie : HttpCookie) -> String.equalsCaseInsensitive name cookie.name)
         >> Choice.ofOption (sprintf "Cookie named '%s' not found in request" name)
         >> Choice.bind ((fun c -> c.value) >> AcceptLanguage.tryParse))
 

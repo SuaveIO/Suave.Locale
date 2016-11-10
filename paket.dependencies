@@ -1,18 +1,15 @@
-framework: net45
+framework: net461
 source https://www.nuget.org/api/v2
 
-nuget FSharp.Core ~> 3
-nuget Suave
-nuget Suave.Testing
+nuget FSharp.Core
+nuget Suave prerelease
+nuget Suave.Testing prerelease
 nuget Arachne.Core
 nuget Arachne.Language
 nuget Arachne.Http
 nuget Chiron
-
-nuget Fuchu.FsCheck
+nuget Expecto.FsCheck
 nuget FsCheck
-nuget Http.fs-prerelease
-
+nuget Http.fs
 nuget NuGet.CommandLine
-
 github haf/YoLo YoLo.fs
