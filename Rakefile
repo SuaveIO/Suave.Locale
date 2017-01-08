@@ -73,7 +73,9 @@ end
 
 namespace :tests do
   task :unit do
-    system "src/Suave.Locale.Tests/bin/#{Configuration}/Suave.Locale.Tests.exe", clr_command: true
+    system "src/Suave.Locale.Tests/bin/#{Configuration}/Suave.Locale.Tests.exe",
+      %|--sequenced|,
+      clr_command: true
   end
 end
 
