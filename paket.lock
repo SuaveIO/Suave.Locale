@@ -30,8 +30,7 @@ NUGET
     FParsec (1.0.2)
     FsCheck (2.8)
       FSharp.Core (>= 3.1.2.5)
-    FSharp.Core (4.1.0.2)
-      System.ValueTuple (>= 4.3)
+    FSharp.Core (4.0.0.1)
     Hopac (0.3.23)
       FSharp.Core (>= 3.1.2.5)
     Http.fs (4.1)
@@ -45,7 +44,6 @@ NUGET
       Expecto (>= 4.0.3)
       FSharp.Core (>= 4.0.0.1)
       Suave (>= 2.0.5)
-    System.ValueTuple (4.3)
 GITHUB
   remote: haf/YoLo
     YoLo.fs (2ae49ac885e2f42812edbaa2dbc8d0e872653cab)
