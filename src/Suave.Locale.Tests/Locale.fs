@@ -187,7 +187,7 @@ let http =
 
     try
       use resp =
-        Client.Request.create Client.Get (Uri "http://127.0.0.1:8083/i18n/messages")
+        Client.Request.create Client.Get (Uri "http://127.0.0.1:8080/i18n/messages")
         |> fHeader
         |> Client.getResponse
         |> run

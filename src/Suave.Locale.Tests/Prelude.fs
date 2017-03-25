@@ -3,6 +3,7 @@ module Suave.Locale.Prelude
 
 open System
 open FsCheck
+open Expecto
 open Arachne.Language
 open Suave.Locale
 
@@ -21,5 +22,5 @@ type Arbs =
   static member MessageKey () =
     Gen.nonEmptyListOf (Arb.generate<string>) |> Arb.fromGen
 
-let fsCheckConfig = { Config.Default with Arbitrary = [ typeof<Arbs> ] }
+let fsCheckConfig = { FsCheckConfig.defaultConfig with arbitrary = [ typeof<Arbs> ] }
     
