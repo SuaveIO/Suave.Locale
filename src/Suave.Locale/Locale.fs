@@ -111,7 +111,7 @@ module IntlData =
   /// in the case of differing hierarchies of the two translations, choses the
   /// hierarchy from b.
   let merge (a : IntlData) (b : IntlData) =
-    let combined = b.messages |> Map.fold (fun acc key t -> acc |> Map.put key t) a.messages
+    let combined = b.messages |> Map.fold (fun acc key t -> acc |> Map.add key t) a.messages
     { locale   = b.locale
       messages = combined }
 
