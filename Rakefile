@@ -54,22 +54,18 @@ end
 
 directory 'build/pkg'
 
-desc 'package nugets - finds all projects and package them'
-nugets_pack :create_nugets => ['build/pkg', :versioning, :compile] do |p|
-  p.configuration = Configuration
-  p.files   = FileList['src/**/*.{csproj,fsproj,nuspec}'].
-    exclude(/Tests/)
-  p.out     = 'build/pkg'
-  p.exe     = 'packages/NuGet.CommandLine/tools/NuGet.exe'
-  p.with_metadata do |m|
-    m.title       = 'Suave.Locale - i18n for Suave'
-    m.description = 'An internationalisation WebPart and library for Suave for use with React-Intl or other i18n systems.'
-    m.authors     = 'Henrik Feldt, Logibit AB'
-    m.project_url = 'https://github.com/SuaveIO/Suave.Locale#suave-locale'
-    m.tags        = 'i18n localization globalization locale locales'
-    m.version     = ENV['NUGET_VERSION']
-  end
+nugets_pack :create_nugets_quick => [:versioning] do |x|
+  x.configuration = Configuration
+  x.output  = 'build/pkg'
+  x.exe     = 'tools/paket.exe'
+  x.version = ENV['NUGET_VERSION']
+  x.files   = [ 'src/Suave.Locale/Suave.Locale.fsproj' ]
+  x.authors = 'Henrik Feldt'
+  x.description = 'An internationalisation WebPart and library for Suave for use with React-Intl or other i18n systems.'
 end
+
+desc 'package nugets - finds all projects and package them'
+task :create_nugets => ['build/pkg', :versioning, :compile, :create_nugets_quick]
 
 namespace :tests do
   task :unit do
